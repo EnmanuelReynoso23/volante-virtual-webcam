@@ -1,0 +1,50 @@
+{
+  "marioKart": {
+    "name": "Mario Kart",
+    "description": "Racing game with acceleration and launch",
+    "gestures": {
+      "leftTurn": { "key": "A", "label": "Left", "customizable": false },
+      "rightTurn": { "key": "D", "label": "Right", "customizable": false },
+      "bothHandsClosed": { "key": "C", "label": "Accelerate", "customizable": true },
+      "bothHandsOpen": { "key": "X", "label": "Launch", "customizable": true },
+      "oneHandClosed": { "key": "C", "label": "Accelerate", "customizable": true }
+    },
+    "constants": {
+      "angleThreshold": 15,
+      "minDetectionConfidence": 0.7,
+      "minTrackingConfidence": 0.5
+    }
+  },
+  "angryBirds": {
+    "name": "Angry Birds",
+    "description": "Slingshot game - use hand angles to aim and release",
+    "gestures": {
+      "leftTurn": { "key": "A", "label": "Pull Left", "customizable": false },
+      "rightTurn": { "key": "D", "label": "Pull Right", "customizable": false },
+      "bothHandsClosed": { "key": "Space", "label": "Load Bird", "customizable": true },
+      "bothHandsOpen": { "key": "Space", "label": "Release", "customizable": true },
+      "oneHandClosed": { "key": "C", "label": "Aim Up", "customizable": true }
+    },
+    "constants": {
+      "angleThreshold": 15,
+      "minDetectionConfidence": 0.7,
+      "minTrackingConfidence": 0.5
+    }
+  },
+  "flappyBird": {
+    "name": "Flappy Bird",
+    "description": "Simple bird game - flap to navigate",
+    "gestures": {
+      "leftTurn": { "key": "A", "label": "Tilt Left", "customizable": false },
+      "rightTurn": { "key": "D", "label": "Tilt Right", "customizable": false },
+      "bothHandsOpen": { "key": "Space", "label": "Flap", "customizable": true },
+      "bothHandsClosed": { "key": "Space", "label": "Flap", "customizable": true },
+      "oneHandOpen": { "key": "Space", "label": "Flap", "customizable": true }
+    },
+    "constants": {
+      "angleThreshold": 15,
+      "minDetectionConfidence": 0.7,
+      "minTrackingConfidence": 0.5
+    }
+  }
+}

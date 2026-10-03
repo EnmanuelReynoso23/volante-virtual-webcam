@@ -4,7 +4,8 @@ var canvas;
 var altoCamara = 720;
 var anchoCamara = 720;
 
-var amarillo = {r: 255, g: 255, b: 0};
+// Color verde para plátanos verdes 🍌💚
+var amarillo = {r: 50, g: 180, b: 50};
 
 var distanciaAceptableColor = 190;
 

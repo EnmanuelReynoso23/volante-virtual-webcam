@@ -1,49 +1,284 @@
 <!DOCTYPE html>
 <html>
 <head>
-	<title>Platano</title>
-
+	<title>Control con Manos 🖐️</title>
 	<style type="text/css">
+		* {
+			margin: 0;
+			padding: 0;
+			box-sizing: border-box;
+		}
+		body {
+			font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+			background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+			min-height: 100vh;
+			color: white;
+			padding: 20px;
+		}
+		h1 {
+			text-align: center;
+			margin-bottom: 20px;
+			font-size: 2rem;
+			background: linear-gradient(90deg, #00ff88, #00d4ff);
+			-webkit-background-clip: text;
+			-webkit-text-fill-color: transparent;
+		}
+		.container {
+			display: flex;
+			justify-content: center;
+			align-items: flex-start;
+			gap: 30px;
+			flex-wrap: wrap;
+		}
+		.video-container {
+			position: relative;
+			border-radius: 15px;
+			overflow: hidden;
+			box-shadow: 0 10px 40px rgba(0, 255, 136, 0.3);
+		}
 		#canvas {
 			-moz-transform: scaleX(-1);
 	        -o-transform: scaleX(-1);
 	        -webkit-transform: scaleX(-1);
 	        transform: scaleX(-1);
-	        filter: FlipH;
-	        -ms-filter: "FlipH";
+	        border-radius: 15px;
 		}
-
 		#divCarrito {
-			display: inline-block;
-		    vertical-align: top;
-		    padding: 100px;
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			padding: 30px;
+			background: rgba(255, 255, 255, 0.05);
+			border-radius: 15px;
+			backdrop-filter: blur(10px);
 		}
-
 		#carrito {
-			transform: rotate(270deg);
+			width: 120px;
+			transition: transform 0.1s ease-out;
+		}
+		#info {
+			font-size: 3rem;
+			font-weight: bold;
+			margin-top: 20px;
+			color: #00ff88;
+		}
+		.status {
+			margin-top: 15px;
+			padding: 10px 20px;
+			border-radius: 25px;
+			font-weight: bold;
+		}
+		.status.connected {
+			background: rgba(0, 255, 136, 0.2);
+			border: 2px solid #00ff88;
+			color: #00ff88;
+		}
+		.instructions {
+			text-align: center;
+			margin-top: 20px;
+			padding: 20px;
+			background: rgba(255, 255, 255, 0.05);
+			border-radius: 15px;
+			max-width: 600px;
+			margin-left: auto;
+			margin-right: auto;
+		}
+		.instructions h3 {
+			color: #00d4ff;
+			margin-bottom: 10px;
+		}
+		.instructions p {
+			margin: 8px 0;
+			color: #ccc;
+		}
+		.gesture {
+			display: inline-block;
+			padding: 5px 12px;
+			background: rgba(0, 212, 255, 0.2);
+			border-radius: 8px;
+			margin: 3px;
 		}
 	</style>
 </head>
 <body>
+	<h1>🖐️ Control con Manos - Mario Kart 🏎️</h1>
+	
     <video id="video" playsinline autoplay style="display:none;"></video>
-    <canvas id="canvas" width="475" height="475"></canvas>
-    <div id="divCarrito">
-    	<img id="carrito" src="carrito-chico.png" />
+    
+    <div class="container">
+    	<div class="video-container">
+    		<canvas id="canvas" width="640" height="480"></canvas>
+    	</div>
+    	
+	    <div id="divCarrito">
+	    	<img id="carrito" src="carrito-chico.png" />
+	    	<div id="info">0°</div>
+	    	<div class="status connected" id="status">🖐️ Buscando manos...</div>
+	    </div>
     </div>
-    <div style="display: inline-block;" id="info"></div>
+    
+    <div class="instructions">
+    	<h3>📖 Instrucciones</h3>
+    	<p><span class="gesture">🖐️ Dos manos</span> = Inclina como un volante para girar</p>
+    	<p><span class="gesture">👍 Pulgar arriba</span> = Acelerar</p>
+    	<p><span class="gesture">✋ Manos arriba</span> = Brincar</p>
+    </div>
 
-    <script type="text/javascript" src="webcam.js"></script>
-    <script type="text/javascript" src="platanete.js"></script>
-    <script
-	  src="https://code.jquery.com/jquery-3.6.0.min.js"
-	  integrity="sha256-/xUj+3OJU5yExlq6GSYGSHk7tPXikynS7ogEvDej/m4="
-	  crossorigin="anonymous"></script>
+    <!-- MediaPipe Hands -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+    
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js" crossorigin="anonymous"></script>
 
     <script type="text/javascript">
-
-    	window.onload = function() {
-    		mostrarCamara();
+    	const video = document.getElementById('video');
+    	const canvas = document.getElementById('canvas');
+    	const ctx = canvas.getContext('2d');
+    	const statusEl = document.getElementById('status');
+    	const infoEl = document.getElementById('info');
+    	const carritoEl = document.getElementById('carrito');
+    	
+    	let ultimoUrl = null;
+    	const sensibilidadGiro = 2.5;
+    	
+    	// Inicializar MediaPipe Hands
+    	const hands = new Hands({
+    		locateFile: (file) => {
+    			return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
+    		}
+    	});
+    	
+    	hands.setOptions({
+    		maxNumHands: 2,
+    		modelComplexity: 1,
+    		minDetectionConfidence: 0.7,
+    		minTrackingConfidence: 0.5
+    	});
+    	
+    	hands.onResults(onResults);
+    	
+    	// Función principal que procesa los resultados
+    	function onResults(results) {
+    		// Dibujar el video
+    		ctx.save();
+    		ctx.clearRect(0, 0, canvas.width, canvas.height);
+    		ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
+    		
+    		if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+    			let handsData = [];
+    			
+    			// Procesar cada mano detectada
+    			for (let i = 0; i < results.multiHandLandmarks.length; i++) {
+    				const landmarks = results.multiHandLandmarks[i];
+    				
+    				// Dibujar la mano
+    				drawConnectors(ctx, landmarks, HAND_CONNECTIONS, {color: '#00FF88', lineWidth: 3});
+    				drawLandmarks(ctx, landmarks, {color: '#FF0088', lineWidth: 2, radius: 4});
+    				
+    				// Obtener el centro de la palma (punto 9 = base del dedo medio)
+    				const palmCenter = {
+    					x: landmarks[9].x * canvas.width,
+    					y: landmarks[9].y * canvas.height
+    				};
+    				
+    				// Obtener la punta del pulgar y otros dedos para detectar gestos
+    				const thumbTip = landmarks[4];
+    				const thumbBase = landmarks[2];
+    				const indexTip = landmarks[8];
+    				const wrist = landmarks[0];
+    				
+    				// Detectar pulgar arriba
+    				const thumbUp = thumbTip.y < thumbBase.y - 0.1 && 
+    				                thumbTip.y < indexTip.y;
+    				
+    				handsData.push({
+    					center: palmCenter,
+    					wristY: wrist.y * canvas.height,
+    					thumbUp: thumbUp
+    				});
+    			}
+    			
+    			// Si tenemos dos manos, calcular el ángulo entre ellas
+    			if (handsData.length >= 2) {
+    				statusEl.textContent = '🎮 ¡Controlando!';
+    				
+    				const leftHand = handsData[0].center.x < handsData[1].center.x ? handsData[0] : handsData[1];
+    				const rightHand = handsData[0].center.x < handsData[1].center.x ? handsData[1] : handsData[0];
+    				
+    				// Dibujar línea entre las manos
+    				ctx.beginPath();
+    				ctx.strokeStyle = '#00FF00';
+    				ctx.lineWidth = 4;
+    				ctx.moveTo(leftHand.center.x, leftHand.center.y);
+    				ctx.lineTo(rightHand.center.x, rightHand.center.y);
+    				ctx.stroke();
+    				
+    				// Calcular el ángulo
+    				const diffY = rightHand.center.y - leftHand.center.y;
+    				const diffX = rightHand.center.x - leftHand.center.x;
+    				const radianes = Math.atan(diffY / diffX);
+    				let grados = radianes * (180 / Math.PI);
+    				grados = Math.round(grados);
+    				
+    				// Actualizar UI
+    				infoEl.textContent = grados + '°';
+    				const base = 270;
+    				const nuevosGrados = base + (grados * -1) * sensibilidadGiro;
+    				carritoEl.style.transform = 'rotate(' + nuevosGrados + 'deg)';
+    				
+    				// Detectar brincar (manos arriba)
+    				const avgWristY = (leftHand.wristY + rightHand.wristY) / 2;
+    				const brincar = avgWristY < 150 ? "1" : "0";
+    				
+    				// Detectar acelerar (cualquier pulgar arriba)
+    				const acelerar = (handsData[0].thumbUp || handsData[1].thumbUp) ? "1" : "0";
+    				
+    				// Enviar movimiento
+    				enviarMovimiento(grados, brincar, acelerar);
+    			} else if (handsData.length === 1) {
+    				statusEl.textContent = '☝️ Muestra las dos manos';
+    				// Con una sola mano, solo acelerar si hay pulgar arriba
+    				const acelerar = handsData[0].thumbUp ? "1" : "0";
+    				enviarMovimiento(0, "0", acelerar);
+    			}
+    		} else {
+    			statusEl.textContent = '🖐️ Buscando manos...';
+    			enviarMovimiento(0, "0", "0");
+    		}
+    		
+    		ctx.restore();
     	}
+    	
+    	function enviarMovimiento(grados, brincar, acelerar) {
+    		let movimiento = "0";
+    		if (grados >= 15) {
+    			movimiento = "-1"; // Izquierda
+    		} else if (grados <= -15) {
+    			movimiento = "1"; // Derecha
+    		}
+    		
+    		const url = "http://localhost:3000?movimiento=" + movimiento + 
+    		    "&brincar=" + brincar + "&acelerar=" + acelerar;
+    		
+    		if (ultimoUrl === null || url !== ultimoUrl) {
+    			ultimoUrl = url;
+    			$.get(url, function(response) {
+    				console.log(response);
+    			});
+    		}
+    	}
+    	
+    	// Iniciar la cámara
+    	const camera = new Camera(video, {
+    		onFrame: async () => {
+    			await hands.send({image: video});
+    		},
+    		width: 640,
+    		height: 480
+    	});
+    	camera.start();
     </script>
 </body>
 </html>

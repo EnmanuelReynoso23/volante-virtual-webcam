@@ -1,0 +1,418 @@
+﻿using System;
+using System.Runtime.InteropServices;
+
+namespace NetApp
+{
+    class Program
+    {
+        static void Main(string[] args)
+        {
+            Console.WriteLine("Comenzando el programa de .NET - Mario Kart 64");
+            Console.WriteLine("Controles: LEFT/RIGHT = Dirección, A = Brincar, C = Acelerar, X = Disparar");
+            
+            while (true)
+            {
+                try
+                {
+                    string? entrada = Console.ReadLine();
+                    if (string.IsNullOrEmpty(entrada)) continue;
+
+                    string[] datos = entrada.Split(',');
+
+                    if (datos[0] == "JOY")
+                    {
+                        // MODO JOYSTICK 3D
+                        if (datos.Length < 4) continue;
+                        
+                        // Parsear coordenadas (vienen de -100 a +100)
+                        if (!int.TryParse(datos[1], out int x) || !int.TryParse(datos[2], out int y)) continue;
+                        string accionar = datos[3];
+
+                        // Configurar zona muerta local del emulador (aunque ya viene filtrado de JS)
+                        int zonaMuerta = 20;
+
+                        // Eje X: A (Izquierda) / D (Derecha)
+                        if (x < -zonaMuerta)
+                        {
+                            WindowsCrap.Press(WindowsCrap.ScanCodeShort.KEY_A);
+                            WindowsCrap.Release(WindowsCrap.ScanCodeShort.KEY_D);
+                        }
+                        else if (x > zonaMuerta)
+                        {
+                            WindowsCrap.Press(WindowsCrap.ScanCodeShort.KEY_D);
+                            WindowsCrap.Release(WindowsCrap.ScanCodeShort.KEY_A);
+                        }
+                        else
+                        {
+                            WindowsCrap.Release(WindowsCrap.ScanCodeShort.KEY_A);
+                            WindowsCrap.Release(WindowsCrap.ScanCodeShort.KEY_D);
+                        }
+
+                        // Eje Y: W (Adelante/Arriba = Y negativo en pantalla) / S (Atrás/Abajo = Y positivo)
+                        if (y < -zonaMuerta)
+                        {
+                            WindowsCrap.Press(WindowsCrap.ScanCodeShort.KEY_W);
+                            WindowsCrap.Release(WindowsCrap.ScanCodeShort.KEY_S);
+                        }
+                        else if (y > zonaMuerta)
+                        {
+                            WindowsCrap.Press(WindowsCrap.ScanCodeShort.KEY_S);
+                            WindowsCrap.Release(WindowsCrap.ScanCodeShort.KEY_W);
+                        }
+                        else
+                        {
+                            WindowsCrap.Release(WindowsCrap.ScanCodeShort.KEY_W);
+                            WindowsCrap.Release(WindowsCrap.ScanCodeShort.KEY_S);
+                        }
+
+                        // Acción: Tecla X
+                        if (accionar == "1")
+                        {
+                            WindowsCrap.Press(WindowsCrap.ScanCodeShort.KEY_X);
+                        }
+                        else
+                        {
+                            WindowsCrap.Release(WindowsCrap.ScanCodeShort.KEY_X);
+                        }
+                    }
+                    else
+                    {
+                        // MODO VOLANTE ORIGINAL (Mario Kart 64)
+                        if (datos.Length < 3) continue;
+
+                        string movimiento = datos[0];
+                        string brincar = datos[1];
+                        string acelerar = datos[2];
+                        string disparar = datos.Length > 3 ? datos[3] : "0";
+
+                        // Control de dirección (A = Izquierda, D = Derecha)
+                        if (movimiento.Equals("0"))
+                        {
+                            WindowsCrap.Release(WindowsCrap.ScanCodeShort.KEY_A);
+                            WindowsCrap.Release(WindowsCrap.ScanCodeShort.KEY_D);
+                        }
+                        else if (movimiento.Equals("-1"))
+                        {
+                            WindowsCrap.Press(WindowsCrap.ScanCodeShort.KEY_A);
+                            WindowsCrap.Release(WindowsCrap.ScanCodeShort.KEY_D);
+                        }
+                        else if (movimiento.Equals("1"))
+                        {
+                            WindowsCrap.Press(WindowsCrap.ScanCodeShort.KEY_D);
+                            WindowsCrap.Release(WindowsCrap.ScanCodeShort.KEY_A);
+                        }
+
+                        // Brincar / Frenar (Usaremos W ya que A ahora es girar)
+                        if (brincar.Equals("1"))
+                        {
+                            WindowsCrap.Press(WindowsCrap.ScanCodeShort.KEY_W);
+                        }
+                        else
+                        {
+                            WindowsCrap.Release(WindowsCrap.ScanCodeShort.KEY_W);
+                        }
+
+                        // Acelerar (Tecla C)
+                        if (acelerar.Equals("1"))
+                        {
+                            WindowsCrap.Press(WindowsCrap.ScanCodeShort.KEY_C);
+                        }
+                        else
+                        {
+                            WindowsCrap.Release(WindowsCrap.ScanCodeShort.KEY_C);
+                        }
+
+                        // Disparar / Lanzar objeto (Tecla Space / barra espaciadora)
+                        if (disparar.Equals("1"))
+                        {
+                            WindowsCrap.Press(WindowsCrap.ScanCodeShort.SPACE);
+                        }
+                        else
+                        {
+                            WindowsCrap.Release(WindowsCrap.ScanCodeShort.SPACE);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.Error.WriteLine($"Error procesando entrada: {ex.Message}");
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Clase para simular eventos de teclado usando SendInput (scan codes)
+    /// Esto es lo que funciona con emuladores de N64 como Project64
+    /// </summary>
+    public class WindowsCrap
+    {
+        public static void Send(ScanCodeShort a, KEYEVENTF kef)
+        {
+            INPUT[] Inputs = new INPUT[1];
+            INPUT Input = new INPUT();
+            Input.type = 1; // 1 = Keyboard Input
+            Input.U.ki.wScan = a;
+            Input.U.ki.dwFlags = kef;
+            Inputs[0] = Input;
+            SendInput(1, Inputs, INPUT.Size);
+        }
+
+        public static void Press(ScanCodeShort a)
+        {
+            Send(a, KEYEVENTF.SCANCODE);
+        }
+
+        public static void Release(ScanCodeShort a)
+        {
+            Send(a, KEYEVENTF.KEYUP | KEYEVENTF.SCANCODE);
+        }
+
+        [DllImport("user32.dll")]
+        internal static extern uint SendInput(
+            uint nInputs,
+            [MarshalAs(UnmanagedType.LPArray), In] INPUT[] pInputs,
+            int cbSize);
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct INPUT
+        {
+            public uint type;
+            public InputUnion U;
+            public static int Size
+            {
+                get { return Marshal.SizeOf(typeof(INPUT)); }
+            }
+        }
+
+        [StructLayout(LayoutKind.Explicit)]
+        public struct InputUnion
+        {
+            [FieldOffset(0)]
+            internal MOUSEINPUT mi;
+            [FieldOffset(0)]
+            internal KEYBDINPUT ki;
+            [FieldOffset(0)]
+            internal HARDWAREINPUT hi;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct MOUSEINPUT
+        {
+            internal int dx;
+            internal int dy;
+            internal MouseEventDataXButtons mouseData;
+            internal MOUSEEVENTF dwFlags;
+            internal uint time;
+            internal UIntPtr dwExtraInfo;
+        }
+
+        [Flags]
+        public enum MouseEventDataXButtons : uint
+        {
+            Nothing = 0x00000000,
+            XBUTTON1 = 0x00000001,
+            XBUTTON2 = 0x00000002
+        }
+
+        [Flags]
+        public enum MOUSEEVENTF : uint
+        {
+            ABSOLUTE = 0x8000,
+            HWHEEL = 0x01000,
+            MOVE = 0x0001,
+            MOVE_NOCOALESCE = 0x2000,
+            LEFTDOWN = 0x0002,
+            LEFTUP = 0x0004,
+            RIGHTDOWN = 0x0008,
+            RIGHTUP = 0x0010,
+            MIDDLEDOWN = 0x0020,
+            MIDDLEUP = 0x0040,
+            VIRTUALDESK = 0x4000,
+            WHEEL = 0x0800,
+            XDOWN = 0x0080,
+            XUP = 0x0100
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct KEYBDINPUT
+        {
+            internal VirtualKeyShort wVk;
+            internal ScanCodeShort wScan;
+            internal KEYEVENTF dwFlags;
+            internal int time;
+            internal UIntPtr dwExtraInfo;
+        }
+
+        [Flags]
+        public enum KEYEVENTF : uint
+        {
+            EXTENDEDKEY = 0x0001,
+            KEYUP = 0x0002,
+            SCANCODE = 0x0008,
+            UNICODE = 0x0004
+        }
+
+        public enum VirtualKeyShort : short
+        {
+            LBUTTON = 0x01,
+            RBUTTON = 0x02,
+            CANCEL = 0x03,
+            MBUTTON = 0x04,
+            XBUTTON1 = 0x05,
+            XBUTTON2 = 0x06,
+            BACK = 0x08,
+            TAB = 0x09,
+            CLEAR = 0x0C,
+            RETURN = 0x0D,
+            SHIFT = 0x10,
+            CONTROL = 0x11,
+            MENU = 0x12,
+            PAUSE = 0x13,
+            CAPITAL = 0x14,
+            ESCAPE = 0x1B,
+            SPACE = 0x20,
+            LEFT = 0x25,
+            UP = 0x26,
+            RIGHT = 0x27,
+            DOWN = 0x28,
+            KEY_0 = 0x30,
+            KEY_1 = 0x31,
+            KEY_2 = 0x32,
+            KEY_3 = 0x33,
+            KEY_4 = 0x34,
+            KEY_5 = 0x35,
+            KEY_6 = 0x36,
+            KEY_7 = 0x37,
+            KEY_8 = 0x38,
+            KEY_9 = 0x39,
+            KEY_A = 0x41,
+            KEY_B = 0x42,
+            KEY_C = 0x43,
+            KEY_D = 0x44,
+            KEY_E = 0x45,
+            KEY_F = 0x46,
+            KEY_G = 0x47,
+            KEY_H = 0x48,
+            KEY_I = 0x49,
+            KEY_J = 0x4A,
+            KEY_K = 0x4B,
+            KEY_L = 0x4C,
+            KEY_M = 0x4D,
+            KEY_N = 0x4E,
+            KEY_O = 0x4F,
+            KEY_P = 0x50,
+            KEY_Q = 0x51,
+            KEY_R = 0x52,
+            KEY_S = 0x53,
+            KEY_T = 0x54,
+            KEY_U = 0x55,
+            KEY_V = 0x56,
+            KEY_W = 0x57,
+            KEY_X = 0x58,
+            KEY_Y = 0x59,
+            KEY_Z = 0x5A,
+        }
+
+        public enum ScanCodeShort : short
+        {
+            ESCAPE = 1,
+            BACK = 14,
+            TAB = 15,
+            RETURN = 28,
+            SHIFT = 42,
+            CONTROL = 29,
+            MENU = 56,
+            CAPITAL = 58,
+            SPACE = 57,
+            PRIOR = 73,
+            NEXT = 81,
+            END = 79,
+            HOME = 71,
+            LEFT = 75,
+            UP = 72,
+            RIGHT = 77,
+            DOWN = 80,
+            SNAPSHOT = 84,
+            INSERT = 82,
+            DELETE = 83,
+            KEY_0 = 11,
+            KEY_1 = 2,
+            KEY_2 = 3,
+            KEY_3 = 4,
+            KEY_4 = 5,
+            KEY_5 = 6,
+            KEY_6 = 7,
+            KEY_7 = 8,
+            KEY_8 = 9,
+            KEY_9 = 10,
+            KEY_A = 30,
+            KEY_B = 48,
+            KEY_C = 46,
+            KEY_D = 32,
+            KEY_E = 18,
+            KEY_F = 33,
+            KEY_G = 34,
+            KEY_H = 35,
+            KEY_I = 23,
+            KEY_J = 36,
+            KEY_K = 37,
+            KEY_L = 38,
+            KEY_M = 50,
+            KEY_N = 49,
+            KEY_O = 24,
+            KEY_P = 25,
+            KEY_Q = 16,
+            KEY_R = 19,
+            KEY_S = 31,
+            KEY_T = 20,
+            KEY_U = 22,
+            KEY_V = 47,
+            KEY_W = 17,
+            KEY_X = 45,
+            KEY_Y = 21,
+            KEY_Z = 44,
+            LSHIFT = 42,
+            RSHIFT = 54,
+            LCONTROL = 29,
+            RCONTROL = 29,
+            NUMPAD0 = 82,
+            NUMPAD1 = 79,
+            NUMPAD2 = 80,
+            NUMPAD3 = 81,
+            NUMPAD4 = 75,
+            NUMPAD5 = 76,
+            NUMPAD6 = 77,
+            NUMPAD7 = 71,
+            NUMPAD8 = 72,
+            NUMPAD9 = 73,
+            MULTIPLY = 55,
+            ADD = 78,
+            SUBTRACT = 74,
+            DECIMAL = 83,
+            DIVIDE = 53,
+            F1 = 59,
+            F2 = 60,
+            F3 = 61,
+            F4 = 62,
+            F5 = 63,
+            F6 = 64,
+            F7 = 65,
+            F8 = 66,
+            F9 = 67,
+            F10 = 68,
+            F11 = 87,
+            F12 = 88,
+            NUMLOCK = 69,
+            SCROLL = 70,
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct HARDWAREINPUT
+        {
+            internal int uMsg;
+            internal short wParamL;
+            internal short wParamH;
+        }
+    }
+}

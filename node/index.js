@@ -1,24 +1,65 @@
-var express = require('express');
+var express = require("express");
+var http = require("http");
+var WebSocket = require("ws");
+var spawn = require("child_process").spawn;
+
 var app = express();
-var spawn = require('child_process').spawn;
+var server = http.createServer(app);
 
-//Comencemos abriendo el programa
-var net = spawn('../net/NetApp/bin/Debug/NetApp.exe');
+// === WebSocket Server (ULTRA BAJA LATENCIA) ===
+var wss = new WebSocket.Server({ server: server });
 
-net.stdout.on('data', function(data) {
-	console.log("Recibi de .NET este mensaje: " + data.toString());
+// Iniciar el programa de C# (.NET) como un subproceso
+var net = spawn(
+  "../net/NetAppModern/bin/Release/net8.0-windows/win-x64/NetApp.exe"
+);
+
+// Escuchar mensajes del proceso .NET
+net.stdout.on("data", function (data) {
+  console.log(".NET: " + data.toString().trim());
 });
 
-app.get('/', function(req, res) {
-	console.log("Recibi una solicitud " + req.query.movimiento + ", " + req.query.brincar);
-	net.stdin.write(req.query.movimiento + "," 
-		+ req.query.brincar + "," + req.query.acelerar 
-		+ "\r\n");
-	res.send("Hola amigo");
+net.stderr.on("data", function (data) {
+  console.error(".NET Error: " + data.toString().trim());
 });
 
-app.use(express.static('public'));
+// === WebSocket: Recibir comandos en tiempo real ===
+wss.on("connection", function (ws) {
+  console.log("🎮 Cliente WebSocket conectado");
 
-app.listen(3000, function() {
-	console.log("Se levanto el servidor");
+  ws.on("message", function (message) {
+    var cmd = message.toString();
+    // Enviar directamente a C# sin procesar (máxima velocidad)
+    // El formato será "movimiento,brincar,acelerar,disparar" para Kart
+    net.stdin.write(cmd + "\r\n");
+  });
+
+  ws.on("close", function () {
+    console.log("❌ Cliente WebSocket desconectado");
+  });
+});
+
+// Ruta HTTP de respaldo (compatibilidad con versión vieja)
+app.get("/", function (req, res) {
+  net.stdin.write(
+    (req.query.movimiento || "0") + "," +
+    (req.query.brincar || "0") + "," +
+    (req.query.acelerar || "0") + "," +
+    (req.query.disparar || "0") +
+    "\r\n"
+  );
+  res.send("OK");
+});
+
+// Servir archivos estáticos
+app.use(express.static("public"));
+
+// Iniciar servidor en puerto 3000
+server.listen(3000, function () {
+  console.log("===========================================");
+  console.log("  🏎️  Servidor de Control Activo - MODO TURBO");
+  console.log("  📡  WebSocket: ws://localhost:3000");
+  console.log("  🌐  Volante:  http://localhost:3000/manos.html");
+  console.log("  🕹️  Joystick: http://localhost:3000/joystick.html");
+  console.log("===========================================");
 });

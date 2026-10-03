@@ -1,25 +1,110 @@
-# Controla tus videojuegos con un plátano (Parte 4)
+# 🎮 Volante Virtual con Webcam
 
-### Código
+Sistema de control de videojuegos mediante gestos manuales detectados por cámara web. Permite conducir en simuladores usando las manos como volante virtual.
 
-Este es el código fuente para el video "Programa un plátano para controlar videojuegos - 4 | Programemos en vivo" del canal [Ringa Tech](https://youtube.com/c/RingaTech)
+## 📋 Descripción
 
-### Cómo utilizarlo
-Este código cuenta con las siguientes secciones
-#### NET
-El código de .NET está programado en C#, y lo hice utilizando Visual Studio 2019 y .NET Framework 4.7. Se trata de una aplicación de consola que compila a un ejecutable. Dicho ejecutable acepta algunos textos para convertirlos en señales para simular teclas del teclado.
-#### NODE
-Este proyecto se complica un poco más que los anteriores ya que utilizo un servidor web, y estoy utilizando node.js para esto, con la librería *express*.
+Este proyecto implementa un sistema de control gestual que detecta la posición e inclinación de las manos del usuario para controlar un vehículo en simuladores de conducción. Utiliza visión artificial para:
 
-El código que normalmente veíamos en el explorador simplemente abriendo el archivo HTML en Chrome, ahora requiere que:
-1. Abramos una línea de comando y naveguemos a la carpeta "node"
-2. La primera vez necesitamos instalar las dependencias. Para esto ejecutamos el comando "npm update" (ojo, es necesario contar con Node.js instalado previamente).
-3. Finalmente levantamos el servidor con "node index.js"
-4. Podemos detenerlo con Ctrl+C
-5. Para ver la aplicación, es necesario ir a un explorador y poner en el URL: http://localhost:3000/index.html
+- **Dirección**: La inclinación entre las manos determina el giro (izquierda/derecha)
+- **Aceleración**: Manos abiertas = acelerar
+- **Frenado**: Puños cerrados = frenar
 
-### Siguientes pasos
-Con esto terminamos el proyecto. ¡Al fin!
-Déjame saber cualquier comentario que tengas, incidencia, o si quieres enviarme PRs para integrar otras plataformas aparte de Windows, excelente.
+## 🛠️ Tecnologías
 
-¡Suscríbete al canal para que te notifique de nuevos videos!
+- **Frontend**: HTML5, JavaScript, MediaPipe Hands
+- **Backend**: Node.js + Express
+- **Control**: C# .NET (Windows API - SendInput)
+
+## 🚀 Instalación
+
+### Requisitos
+
+- Node.js 18+
+- .NET 10 SDK
+- Webcam
+- Windows 10/11
+
+### Pasos
+
+1. **Clonar el repositorio**
+
+```bash
+git clone https://github.com/TU_USUARIO/volante-virtual-webcam.git
+cd volante-virtual-webcam
+```
+
+2. **Compilar el módulo de control (.NET)**
+
+```bash
+cd net/NetAppModern
+dotnet build -c Release
+cd ../..
+```
+
+3. **Iniciar el servidor**
+
+```bash
+cd node
+npm install
+node index.js
+```
+
+4. **Abrir en el navegador**
+
+```
+http://localhost:3000/manos.html
+```
+
+## 🎯 Controles
+
+| Gesto                           | Acción          | Tecla |
+| ------------------------------- | --------------- | ----- |
+| 🖐️🖐️ Manos abiertas             | Acelerar        | C     |
+| ✊✊ Puños cerrados             | Frenar          | X     |
+| ↙️ Inclinación izquierda (+15°) | Girar izquierda | A     |
+| ↘️ Inclinación derecha (-15°)   | Girar derecha   | D     |
+
+## 📐 Fundamento Físico
+
+El sistema calcula el ángulo de inclinación usando trigonometría:
+
+```
+θ = arctan((Y_derecha - Y_izquierda) / (X_derecha - X_izquierda))
+```
+
+Si θ > 15° → Giro izquierda (Tecla A)
+Si θ < -15° → Giro derecha (Tecla D)
+
+## 📁 Estructura del Proyecto
+
+```
+volante-virtual-webcam/
+├── node/                    # Servidor web
+│   ├── index.js            # Servidor Express
+│   └── public/
+│       └── manos.html      # Interfaz de detección
+├── net/
+│   └── NetAppModern/       # Controlador de teclado
+│       └── Program.cs      # Simulación de teclas
+└── README.md
+```
+
+## 📸 Capturas
+
+El sistema muestra en tiempo real:
+
+- Los 21 landmarks de cada mano
+- Línea de conexión entre manos (verde = acelerando, rojo = frenando)
+- Ángulo de inclinación calculado
+- Teclas activas
+
+## 👨‍💻 Autor
+
+**Enmanuel Reynoso Salazar**
+
+Proyecto desarrollado para el curso de Física General - UAPA
+
+## 📄 Licencia
+
+MIT License - Libre para uso educativo y personal.

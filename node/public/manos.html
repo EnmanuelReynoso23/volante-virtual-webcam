@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+	<title>Control con Manos - Mario Kart 64 🏎️</title>
+	<style type="text/css">
+		* {
+			margin: 0;
+			padding: 0;
+			box-sizing: border-box;
+		}
+
+		body {
+			font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+			background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+			min-height: 100vh;
+			color: white;
+			padding: 20px;
+		}
+
+		h1 {
+			text-align: center;
+			margin-bottom: 20px;
+			font-size: 2rem;
+			background: linear-gradient(90deg, #00ff88, #00d4ff);
+			background-clip: text;
+			-webkit-background-clip: text;
+			-webkit-text-fill-color: transparent;
+		}
+
+		.container {
+			display: flex;
+			justify-content: center;
+			align-items: flex-start;
+			gap: 30px;
+			flex-wrap: wrap;
+		}
+
+		.video-container {
+			position: relative;
+			border-radius: 15px;
+			overflow: hidden;
+			box-shadow: 0 10px 40px rgba(0, 255, 136, 0.3);
+		}
+
+		#canvas {
+			-moz-transform: scaleX(-1);
+			-o-transform: scaleX(-1);
+			-webkit-transform: scaleX(-1);
+			transform: scaleX(-1);
+			border-radius: 15px;
+		}
+
+		#divCarrito {
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			padding: 30px;
+			background: rgba(255, 255, 255, 0.05);
+			border-radius: 15px;
+			backdrop-filter: blur(10px);
+			min-width: 320px;
+		}
+
+		#carrito {
+			width: 120px;
+			transition: transform 0.1s ease-out;
+		}
+
+		#info {
+			font-size: 3rem;
+			font-weight: bold;
+			margin-top: 20px;
+			color: #00ff88;
+		}
+
+		.status {
+			margin-top: 15px;
+			padding: 10px 20px;
+			border-radius: 25px;
+			font-weight: bold;
+			text-align: center;
+			min-width: 250px;
+			box-sizing: border-box;
+		}
+
+		.status.connected {
+			background: rgba(0, 255, 136, 0.2);
+			border: 2px solid #00ff88;
+			color: #00ff88;
+		}
+
+		.status.waiting {
+			background: rgba(255, 200, 0, 0.2);
+			border: 2px solid #ffc800;
+			color: #ffc800;
+		}
+
+		.status.accel {
+			background: rgba(0, 255, 136, 0.2);
+			border: 2px solid #00ff88;
+			color: #00ff88;
+		}
+
+		.instructions {
+			text-align: center;
+			margin-top: 20px;
+			padding: 20px;
+			background: rgba(255, 255, 255, 0.05);
+			border-radius: 15px;
+			max-width: 600px;
+			margin-left: auto;
+			margin-right: auto;
+		}
+
+		.instructions h3 {
+			color: #00d4ff;
+			margin-bottom: 10px;
+		}
+
+		.instructions p {
+			margin: 8px 0;
+			color: #ccc;
+		}
+
+		.gesture {
+			display: inline-block;
+			padding: 5px 12px;
+			background: rgba(0, 212, 255, 0.2);
+			border-radius: 8px;
+			margin: 3px;
+		}
+	</style>
+</head>
+
+<body>
+	<h1>🖐️ Control con Manos - Mario Kart 64 🏎️</h1>
+
+	<video id="video" playsinline autoplay style="display:none;"></video>
+
+	<div class="container">
+		<div class="video-container">
+			<canvas id="canvas" width="640" height="480"></canvas>
+		</div>
+
+		<div id="divCarrito">
+			<img id="carrito" src="carrito-chico.png" />
+			<div id="info">0°</div>
+			<div class="status waiting" id="status">🖐️ Buscando manos...</div>
+		</div>
+	</div>
+
+	<div class="instructions">
+		<h3>📖 Instrucciones - Mario Kart 64</h3>
+		<p><span class="gesture">🖐️ Dos manos abiertas</span> = Acelerar</p>
+		<p><span class="gesture">✊ Dos puños cerrados</span> = Disparar / Lanzar objeto</p>
+		<p><span class="gesture">📐 Inclinar manos</span> = Girar izquierda / derecha</p>
+		<p><span class="gesture">✋ Manos bien arriba</span> = Brincar / Frenar</p>
+	</div>
+
+	<!-- MediaPipe Hands -->
+	<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+	<script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js"
+		crossorigin="anonymous"></script>
+	<script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"
+		crossorigin="anonymous"></script>
+	<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+
+	<script type="text/javascript">
+		const video = document.getElementById('video');
+		const canvas = document.getElementById('canvas');
+		const ctx = canvas.getContext('2d');
+		const statusEl = document.getElementById('status');
+		const infoEl = document.getElementById('info');
+		const carritoEl = document.getElementById('carrito');
+
+		let ultimoCmd = null;
+		const sensibilidadGiro = 2.5;
+
+		// === WEBSOCKET: Conexión ultra rápida al servidor ===
+		let ws = null;
+		let wsReady = false;
+
+		function conectarWebSocket() {
+			ws = new WebSocket('ws://' + window.location.host);
+			ws.onopen = function () {
+				wsReady = true;
+				console.log('⚡ WebSocket conectado - Modo ultra rápido');
+			};
+			ws.onclose = function () {
+				wsReady = false;
+				console.log('❌ WebSocket desconectado, reconectando...');
+				setTimeout(conectarWebSocket, 1000);
+			};
+			ws.onerror = function () { wsReady = false; };
+		}
+		conectarWebSocket();
+
+		// Inicializar MediaPipe Hands
+		const hands = new Hands({
+			locateFile: (file) => {
+				return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
+			}
+		});
+
+		hands.setOptions({
+			maxNumHands: 2,
+			modelComplexity: 0,        // 0 = RAPIDO (vs 1 = preciso pero lento)
+			minDetectionConfidence: 0.6, // Un poco menos estricto = más fluido
+			minTrackingConfidence: 0.3   // Tracking más agresivo = menos re-detecciones
+		});
+
+		hands.onResults(onResults);
+
+		// Detectar si la mano está cerrada (puño)
+		function isHandClosed(landmarks) {
+			if (!landmarks || landmarks.length < 21) return false;
+
+			const indexTip = landmarks[8];
+			const indexBase = landmarks[5];
+			const middleTip = landmarks[12];
+			const middleBase = landmarks[9];
+			const ringTip = landmarks[16];
+			const ringBase = landmarks[13];
+			const pinkyTip = landmarks[20];
+			const pinkyBase = landmarks[17];
+
+			let raisedCount = 0;
+			const threshold = 0.04;
+
+			if (indexTip.y < indexBase.y - threshold) raisedCount++;
+			if (middleTip.y < middleBase.y - threshold) raisedCount++;
+			if (ringTip.y < ringBase.y - threshold) raisedCount++;
+			if (pinkyTip.y < pinkyBase.y - threshold) raisedCount++;
+
+			// Mano cerrada si 1 o menos dedos están levantados
+			return raisedCount <= 1;
+		}
+
+		// Estado para suavizar la detección (evitar parpadeos 1->2->1)
+		let handsDetectedHistory = [];
+		const historyLength = 5; // Cuántos fotogramas de historia guardar
+
+		// Función principal que procesa los resultados de MediaPipe
+		function onResults(results) {
+			// Dibujar el video
+			ctx.save();
+			ctx.clearRect(0, 0, canvas.width, canvas.height);
+			ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
+
+			if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+				let handsData = [];
+
+				// Procesar cada mano detectada
+				for (let i = 0; i < results.multiHandLandmarks.length; i++) {
+					const landmarks = results.multiHandLandmarks[i];
+					const closed = isHandClosed(landmarks);
+
+					// Colores según estado de la mano
+					const connColor = closed ? '#00FF88' : '#00D4FF';
+					const glowColor = closed ? 'rgba(0,255,136,0.6)' : 'rgba(0,212,255,0.6)';
+
+					// === Dibujar solo ubicación de la mano ===
+
+					// Calcular bounding box para la mano
+					let minX = 1, maxX = 0, minY = 1, maxY = 0;
+					for (let j = 0; j < landmarks.length; j++) {
+						if (landmarks[j].x < minX) minX = landmarks[j].x;
+						if (landmarks[j].x > maxX) maxX = landmarks[j].x;
+						if (landmarks[j].y < minY) minY = landmarks[j].y;
+						if (landmarks[j].y > maxY) maxY = landmarks[j].y;
+					}
+
+					const boxX = minX * canvas.width;
+					const boxY = minY * canvas.height;
+					const boxW = (maxX - minX) * canvas.width;
+					const boxH = (maxY - minY) * canvas.height;
+
+					// Dibujar un recuadro brillante
+					ctx.beginPath();
+					ctx.rect(boxX - 10, boxY - 10, boxW + 20, boxH + 20);
+					ctx.lineWidth = 4;
+					ctx.strokeStyle = connColor;
+					ctx.stroke();
+					ctx.fillStyle = glowColor;
+					ctx.fill();
+
+					// Círculo en el centro de la palma
+					const palmX = landmarks[9].x * canvas.width;
+					const palmY = landmarks[9].y * canvas.height;
+
+					ctx.fillStyle = '#FFF';
+					ctx.font = 'bold 30px Arial';
+					ctx.textAlign = 'center';
+					ctx.textBaseline = 'middle';
+					ctx.fillText(closed ? '✊' : '🖐️', palmX, palmY);
+
+					// Obtener el centro de la palma (punto 9 = base del dedo medio)
+					const palmCenter = {
+						x: palmX,
+						y: palmY
+					};
+
+					// Obtener posición de la muñeca
+					const wrist = landmarks[0];
+
+					handsData.push({
+						center: palmCenter,
+						wristY: wrist.y * canvas.height,
+						closed: closed
+					});
+				}
+
+				// Actualizar el historial de detección de manos
+				handsDetectedHistory.push(handsData.length);
+				if (handsDetectedHistory.length > historyLength) {
+					handsDetectedHistory.shift();
+				}
+
+				// Necesitamos que la mayoría de los últimos fotogramas detecten 2 manos 
+				// para considerarlo estable y procesar la lógica de 2 manos
+				const twoHandsCount = handsDetectedHistory.filter(c => c >= 2).length;
+				const isTwoHandsStable = twoHandsCount >= 3;
+
+				// Si tenemos dos manos estables, procedemos normalmente
+				if (isTwoHandsStable && handsData.length >= 2) {
+					statusEl.textContent = '🎮 ¡Controlando!';
+					statusEl.className = 'status connected';
+
+					const leftHand = handsData[0].center.x < handsData[1].center.x ? handsData[0] : handsData[1];
+					const rightHand = handsData[0].center.x < handsData[1].center.x ? handsData[1] : handsData[0];
+
+					// Dibujar línea entre las manos
+					ctx.beginPath();
+					ctx.strokeStyle = '#00FF00';
+					ctx.lineWidth = 4;
+					ctx.moveTo(leftHand.center.x, leftHand.center.y);
+					ctx.lineTo(rightHand.center.x, rightHand.center.y);
+					ctx.stroke();
+
+					// Calcular el ángulo
+					const diffY = rightHand.center.y - leftHand.center.y;
+					const diffX = rightHand.center.x - leftHand.center.x;
+					const radianes = Math.atan(diffY / diffX);
+					let grados = radianes * (180 / Math.PI);
+					grados = Math.round(grados);
+
+					// Actualizar UI
+					infoEl.textContent = grados + '°';
+					const base = 270;
+					const nuevosGrados = base + (grados * -1) * sensibilidadGiro;
+					carritoEl.style.transform = 'rotate(' + nuevosGrados + 'deg)';
+
+					// Detectar brincar (manos arriba)
+					const avgWristY = (leftHand.wristY + rightHand.wristY) / 2;
+					const brincar = avgWristY < 150 ? "1" : "0";
+
+					// Detectar acelerar (ambas manos abiertas)
+					const acelerar = (!handsData[0].closed && !handsData[1].closed) ? "1" : "0";
+
+					// Detectar disparar (ambos puños cerrados)
+					const disparar = (handsData[0].closed && handsData[1].closed) ? "1" : "0";
+
+					if (acelerar === "1") {
+						statusEl.textContent = '🖐️ ¡ACELERANDO!';
+						statusEl.className = 'status accel';
+					} else if (disparar === "1") {
+						statusEl.textContent = '✊ ¡DISPARANDO!';
+						statusEl.className = 'status connected';
+					}
+
+					// Enviar movimiento al servidor
+					enviarMovimiento(grados, brincar, acelerar, disparar);
+				} else if (handsData.length === 1) {
+					statusEl.textContent = '☝️ Muestra las dos manos';
+					statusEl.className = 'status waiting';
+					enviarMovimiento(0, "0", "0", "0");
+				}
+			} else {
+				statusEl.textContent = '🖐️ Buscando manos...';
+				statusEl.className = 'status waiting';
+				enviarMovimiento(0, "0", "0", "0");
+			}
+
+			ctx.restore();
+		}
+
+		function enviarMovimiento(grados, brincar, acelerar, disparar) {
+			let movimiento = "0";
+			// Si giras a la derecha como un volante, la mano derecha baja (mayor Y),
+			// y la izquierda sube (menor Y). El ángulo es positivo.
+			if (grados >= 13) {
+				movimiento = "-1"; // Izquierda
+			}
+			// Si giras a la izquierda, la mano derecha sube (menor Y) y la izquierda baja (mayor Y).
+			// El ángulo es negativo.
+			else if (grados <= -13) {
+				movimiento = "1"; // Derecha
+			}
+
+			// Formato: movimiento,brincar,acelerar,disparar
+			const cmd = movimiento + "," + brincar + "," + acelerar + "," + disparar;
+
+			// Solo enviar si el comando cambió (evitar flood)
+			if (cmd !== ultimoCmd) {
+				ultimoCmd = cmd;
+				if (wsReady) {
+					// WebSocket: envío instantáneo, sin esperar respuesta
+					ws.send(cmd);
+				} else {
+					// Fallback HTTP si WebSocket no está disponible
+					fetch('/?movimiento=' + movimiento + '&brincar=' + brincar + '&acelerar=' + acelerar + '&disparar=' + disparar);
+				}
+			}
+		}
+
+		// Iniciar la cámara a 60 FPS Reales
+		async function initCamera() {
+			try {
+				// Solicitar hardware de 60 FPS específicamente
+				const stream = await navigator.mediaDevices.getUserMedia({
+					video: {
+						width: { ideal: 640 },
+						height: { ideal: 480 },
+						frameRate: { ideal: 60, min: 30 }
+					}
+				});
+				video.srcObject = stream;
+				await video.play();
+
+				// Bucle de procesamiento de frames ligado al refresco del monitor (muy rápido)
+				let lastTime = 0;
+				async function step(time) {
+					if (!video.paused && !video.ended) {
+						// Para no enviar frames repetidos más rápido de lo que la cámara reporta útil 
+						// si la cámara va a 60fps enviará a 60hz, maximo 60 fps
+						await hands.send({ image: video });
+					}
+					requestAnimationFrame(step);
+				}
+				requestAnimationFrame(step);
+
+			} catch (err) {
+				console.error("Error accediendo a la cámara:", err);
+				statusEl.textContent = '❌ Error de cámara. Asegúrate de darle permisos.';
+				statusEl.className = 'status waiting';
+			}
+		}
+		initCamera();
+	</script>
+</body>
+
+</html>
