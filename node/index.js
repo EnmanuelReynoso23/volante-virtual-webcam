@@ -1,24 +1,51 @@
-var express = require('express');
+var express = require("express");
 var app = express();
-var spawn = require('child_process').spawn;
+var spawn = require("child_process").spawn;
 
-//Comencemos abriendo el programa
-var net = spawn('../net/NetApp/bin/Debug/NetApp.exe');
+// Iniciar el programa de C# (.NET) como un subproceso
+var net = spawn(
+  "../net/NetAppModern/bin/Release/net10.0-windows/win-x64/NetApp.exe"
+);
 
-net.stdout.on('data', function(data) {
-	console.log("Recibi de .NET este mensaje: " + data.toString());
+// Escuchar mensajes provenientes del proceso .NET (salida estándar)
+net.stdout.on("data", function (data) {
+  console.log("Mensaje recibido de .NET: " + data.toString());
 });
 
-app.get('/', function(req, res) {
-	console.log("Recibi una solicitud " + req.query.movimiento + ", " + req.query.brincar);
-	net.stdin.write(req.query.movimiento + "," 
-		+ req.query.brincar + "," + req.query.acelerar 
-		+ "\r\n");
-	res.send("Hola amigo");
+// Escuchar errores del proceso .NET
+net.stderr.on("data", function (data) {
+  console.error("Error de .NET: " + data.toString());
 });
 
-app.use(express.static('public'));
+// Ruta principal para recibir comandos desde el navegador
+// Ejemplo: /?movimiento=-1&brincar=0&acelerar=1
+app.get("/", function (req, res) {
+  // Mostrar en consola los comandos recibidos
+  console.log(
+    "Comando recibido -> MOV:" + req.query.movimiento + 
+    " | BRINCAR:" + req.query.brincar + 
+    " | ACELERAR:" + req.query.acelerar
+  );
 
-app.listen(3000, function() {
-	console.log("Se levanto el servidor");
+  // Enviar los datos al proceso C# a través de la entrada estándar (stdin)
+  // Formato simple: movimiento,brincar,acelerar (ej. "-1,0,1")
+  net.stdin.write(
+    req.query.movimiento +
+      "," +
+      req.query.brincar +
+      "," +
+      req.query.acelerar +
+      "\r\n"
+  );
+  
+  res.send("Comando procesado");
+});
+
+// Servir archivos estáticos (frontend) desde la carpeta 'public'
+app.use(express.static("public"));
+
+// Iniciar el servidor web en el puerto 3000
+app.listen(3000, function () {
+  console.log("Servidor iniciado en http://localhost:3000");
+  console.log("Abre manos.html en el navegador para controlar Mario Kart 64");
 });

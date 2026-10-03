@@ -1,0 +1,14 @@
+[core]
+	repositoryformatversion = 0
+	filemode = false
+	bare = false
+	logallrefupdates = true
+	symlinks = false
+	ignorecase = true
+[branch "master"]
+	vscode-merge-base = origin/master
+	remote = origin
+	merge = refs/heads/master
+[remote "origin"]
+	url = https://github.com/EnmanuelReynoso23/volante-virtual-webcam.git
+	fetch = +refs/heads/*:refs/remotes/origin/*
